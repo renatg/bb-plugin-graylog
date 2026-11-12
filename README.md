@@ -33,11 +33,11 @@
 Из GitHub (приватный репозиторий — нужен ваш git-доступ):
 
 ```
-bb plugin install git:https://github.com/<owner>/bb-plugin-graylog.git
+bb plugin install git:https://github.com/renatg/bb-plugin-graylog.git
 bb plugin update graylog          # подтянуть новую версию
 ```
 
-Конкретная версия: `git:https://github.com/<owner>/bb-plugin-graylog.git@^0.1`
+Конкретная версия: `git:https://github.com/renatg/bb-plugin-graylog.git@^0.1`
 (по тегам `vX.Y.Z`).
 
 ## Настройки
