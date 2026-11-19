@@ -997,10 +997,12 @@ function SessionView({
     setFound(null);
     void load();
   }, [id, initial, load]);
+  onBack,
 
   if (found === null) {
     return (
       <div className="p-4 text-sm text-muted-foreground">
+  onBack: () => void;
         {error === null ? "Загрузка поиска…" : `Не удалось открыть поиск: ${error}`}
       </div>
     );
@@ -1042,6 +1044,9 @@ function SessionView({
         </button>
         {error === null ? null : (
           <p role="alert" className="text-xs text-destructive">
+        <Button type="button" size="sm" variant="ghost" onClick={onBack} className="self-start">
+          ← К поиску trace
+        </Button>
             {error}
           </p>
         )}
@@ -1123,7 +1128,8 @@ function GraylogPage({ subPath }: PluginNavPanelProps) {
         onArchive={(session) => void archive(session)}
       />
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-        {activeId === null ? (
+        {/* Форма остаётся смонтированной, чтобы состояние поиска trace сохранялось при возврате из логов. */}
+        <div className={activeId === null ? undefined : "hidden"}>
           <SearchForm
             onFound={(found) => {
               setJustFound(found);
@@ -1131,8 +1137,14 @@ function GraylogPage({ subPath }: PluginNavPanelProps) {
               open(found.session.id);
             }}
           />
-        ) : (
-          <SessionView id={activeId} initial={justFound} onChanged={reload} />
+        </div>
+        {activeId === null ? null : (
+          <SessionView
+            id={activeId}
+            initial={justFound}
+            onChanged={reload}
+            onBack={() => open(null)}
+          />
         )}
       </main>
     </div>
