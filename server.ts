@@ -209,6 +209,12 @@ function transportFor(config: McpServerConfig): Transport {
   });
 }
 
+/** Ошибка транспорта, после которой сессию нужно создать заново. */
+function isStaleSession(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /session not found|session.*(expired|terminated)|\b404\b/i.test(message);
+}
+
 /** Ленивое переподключаемое соединение с MCP-сервером. */
 function mcpConnection(
   serverName: string,
@@ -238,10 +244,30 @@ function mcpConnection(
     return client;
   }
 
+  /** Сбросить закешированного клиента (например, сессия протухла на сервере). */
+  async function reset(): Promise<void> {
+    const current = client;
+    client = null;
+    if (!current) return;
+    try {
+      await (await current).close();
+    } catch {
+      // уже закрыт или не подключился
+    }
+  }
+
   return {
     async callTool(name: string, args: Record<string, unknown>): Promise<string> {
-      const mcp = await getClient();
-      const result = (await mcp.callTool({ name, arguments: args })) as McpResult;
+      let result: McpResult;
+      try {
+        result = (await (await getClient()).callTool({ name, arguments: args })) as McpResult;
+      } catch (err) {
+        // Сервер перезапустился/сессия истекла: переподключаемся и повторяем вызов один раз.
+        if (!isStaleSession(err)) throw err;
+        log(`mcp ${serverName}: сессия устарела, переподключаюсь`);
+        await reset();
+        result = (await (await getClient()).callTool({ name, arguments: args })) as McpResult;
+      }
       const text = textOf(result);
       if (result.isError) throw new Error(text || `MCP ${serverName}: ошибка ${name}`);
       return text;

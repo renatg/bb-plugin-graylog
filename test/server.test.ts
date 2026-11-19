@@ -83,7 +83,7 @@ async function setup(extraSettings: Record<string, string> = {}) {
   const calls = () => existsSync(log)
     ? readFileSync(log, "utf8").trim().split("\n").map((l) => JSON.parse(l) as { tool: string; args: Record<string, unknown> })
     : [];
-  return { harness, spawned, calls, listArgs, archived, deleted, waited, sent, setHelperOutput, jaegerCalls: jaeger.calls };
+  return { harness, spawned, calls, listArgs, archived, deleted, waited, sent, setHelperOutput, jaegerCalls: jaeger.calls, expireJaegerSession: jaeger.expireSession };
 }
 
 describe("lib/graylog query translation", () => {
@@ -229,6 +229,13 @@ describe("lib/jaeger", () => {
 
 describe("jaeger rpc via HTTP MCP", () => {
   it("lists services and operations", async () => {
+  it("переподключается и повторяет вызов, если сессия MCP устарела", async () => {
+    const { harness, expireJaegerSession } = await setup();
+    await harness.behavior.callRpc("jaegerServices", { env: "dev" });
+    expireJaegerSession();
+    expect(await harness.behavior.callRpc("jaegerServices", { env: "dev" })).toEqual({ services: ["Svc.A", "Svc.B"] });
+  });
+
     const { harness, jaegerCalls } = await setup();
     expect(await harness.behavior.callRpc("jaegerServices", { env: "dev" })).toEqual({ services: ["Svc.A", "Svc.B"] });
     expect(await harness.behavior.callRpc("jaegerOperations", { env: "dev", service: "Svc.A" }))

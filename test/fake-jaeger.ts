@@ -61,8 +61,9 @@ function buildServer(calls: JaegerCall[]): McpServer {
   return server;
 }
 
-export async function startFakeJaeger(): Promise<{ url: string; calls: JaegerCall[]; close: () => Promise<void> }> {
+export async function startFakeJaeger(): Promise<{ url: string; calls: JaegerCall[]; expireSession: () => void; close: () => Promise<void> }> {
   const calls: JaegerCall[] = [];
+  let expired = false;
   const http = createServer(async (req, res) => {
     if (req.method !== "POST") {
       res.writeHead(405).end();
@@ -71,6 +72,13 @@ export async function startFakeJaeger(): Promise<{ url: string; calls: JaegerCal
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk as Buffer);
     const body: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    if (expired && (body as { method?: string }).method === "tools/call") {
+      // Имитация перезапуска сервера: старая сессия больше не существует.
+      expired = false;
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32001, message: "Session not found" }, id: null }));
+      return;
+    }
     const server = buildServer(calls);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     res.on("close", () => {
@@ -85,6 +93,9 @@ export async function startFakeJaeger(): Promise<{ url: string; calls: JaegerCal
   return {
     url: `http://127.0.0.1:${port}/mcp`,
     calls,
+    expireSession: () => {
+      expired = true;
+    },
     close: () => new Promise<void>((done) => http.close(() => done())),
   };
 }
