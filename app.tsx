@@ -997,10 +997,12 @@ function SessionView({
   id,
   initial,
   onChanged,
+  onBack,
 }: {
   id: string;
   initial: Found | null;
   onChanged: () => void;
+  onBack: () => void;
 }) {
   const rpc = useRpc<typeof rpcContract>();
   const [found, setFound] = useState<Found | null>(initial?.session.id === id ? initial : null);
@@ -1024,12 +1026,10 @@ function SessionView({
     setFound(null);
     void load();
   }, [id, initial, load]);
-  onBack,
 
   if (found === null) {
     return (
       <div className="p-4 text-sm text-muted-foreground">
-  onBack: () => void;
         {error === null ? "Загрузка поиска…" : `Не удалось открыть поиск: ${error}`}
       </div>
     );
@@ -1044,6 +1044,9 @@ function SessionView({
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4">
       <header className="flex flex-col gap-1">
+        <Button type="button" size="sm" variant="ghost" onClick={onBack} className="self-start">
+          ← К поиску trace
+        </Button>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="min-w-0 truncate text-base font-semibold">{session.title}</span>
           <span className="rounded bg-muted px-1.5 text-xs font-medium">{session.env}</span>
@@ -1071,9 +1074,6 @@ function SessionView({
         </button>
         {error === null ? null : (
           <p role="alert" className="text-xs text-destructive">
-        <Button type="button" size="sm" variant="ghost" onClick={onBack} className="self-start">
-          ← К поиску trace
-        </Button>
             {error}
           </p>
         )}
