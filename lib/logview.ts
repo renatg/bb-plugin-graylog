@@ -26,8 +26,14 @@ export function prettyBody(body: string): { text: string; json: boolean } {
 /** Порядок окружений в истории: от боевого к разработке, прочие — по алфавиту. */
 export const ENV_ORDER = ["prod", "stage", "hotfix", "dev"];
 
-/** Сгруппировать элементы по окружению; порядок внутри группы сохраняется. */
-export function groupByEnv<T extends { env: string }>(items: T[]): Array<{ env: string; items: T[] }> {
+/**
+ * Сгруппировать элементы по окружению; порядок внутри группы сохраняется.
+ * Группы идут по свежести: сверху окружение с самым недавним поиском,
+ * при равенстве — по ENV_ORDER, затем по алфавиту.
+ */
+export function groupByEnv<T extends { env: string; updatedAt: number }>(
+  items: T[],
+): Array<{ env: string; items: T[] }> {
   const groups = new Map<string, T[]>();
   for (const item of items) {
     const list = groups.get(item.env);
@@ -38,9 +44,13 @@ export function groupByEnv<T extends { env: string }>(items: T[]): Array<{ env: 
     const i = ENV_ORDER.indexOf(env);
     return i < 0 ? ENV_ORDER.length : i;
   };
+  const latest = (list: T[]) => Math.max(...list.map((item) => item.updatedAt));
   return [...groups.entries()]
     .map(([env, list]) => ({ env, items: list }))
-    .sort((a, b) => rank(a.env) - rank(b.env) || a.env.localeCompare(b.env));
+    .sort(
+      (a, b) =>
+        latest(b.items) - latest(a.items) || rank(a.env) - rank(b.env) || a.env.localeCompare(b.env),
+    );
 }
 
 /** Заголовок сессии без префикса окружения («dev: abc» → «abc»). */

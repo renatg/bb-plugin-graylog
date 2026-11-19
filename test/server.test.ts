@@ -153,12 +153,13 @@ describe("lib/logview", () => {
   const row = (time: string, level: string, service: string) =>
     ({ id: "1", index: "i", time, level, service, message: "m", template: "m", exception: "", category: "",
       spanId: "", eventId: "", attributes: {}, body: "", http: null });
-  it("groups sessions by environment in a fixed order, keeping order inside", () => {
+  it("groups sessions by environment, freshest group first, keeping order inside", () => {
     const items = [
-      { env: "dev", id: 1 }, { env: "qa", id: 2 }, { env: "prod", id: 3 }, { env: "dev", id: 4 }, { env: "stage", id: 5 },
+      { env: "dev", id: 1, updatedAt: 50 }, { env: "qa", id: 2, updatedAt: 10 }, { env: "prod", id: 3, updatedAt: 30 },
+      { env: "dev", id: 4, updatedAt: 20 }, { env: "stage", id: 5, updatedAt: 10 },
     ];
     expect(groupByEnv(items).map((g) => [g.env, g.items.map((i) => i.id)])).toEqual([
-      ["prod", [3]], ["stage", [5]], ["dev", [1, 4]], ["qa", [2]],
+      ["dev", [1, 4]], ["prod", [3]], ["stage", [5]], ["qa", [2]],
     ]);
     expect(titleWithoutEnv("dev: abc", "dev")).toBe("abc");
     expect(titleWithoutEnv("abc", "dev")).toBe("abc");
@@ -228,7 +229,6 @@ describe("lib/jaeger", () => {
 });
 
 describe("jaeger rpc via HTTP MCP", () => {
-  it("lists services and operations", async () => {
   it("переподключается и повторяет вызов, если сессия MCP устарела", async () => {
     const { harness, expireJaegerSession } = await setup();
     await harness.behavior.callRpc("jaegerServices", { env: "dev" });
@@ -236,6 +236,7 @@ describe("jaeger rpc via HTTP MCP", () => {
     expect(await harness.behavior.callRpc("jaegerServices", { env: "dev" })).toEqual({ services: ["Svc.A", "Svc.B"] });
   });
 
+  it("lists services and operations", async () => {
     const { harness, jaegerCalls } = await setup();
     expect(await harness.behavior.callRpc("jaegerServices", { env: "dev" })).toEqual({ services: ["Svc.A", "Svc.B"] });
     expect(await harness.behavior.callRpc("jaegerOperations", { env: "dev", service: "Svc.A" }))

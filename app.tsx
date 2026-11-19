@@ -777,6 +777,28 @@ function timeAgo(ms: number): string {
   return new Date(ms).toLocaleDateString();
 }
 
+const COLLAPSED_KEY = "bb-graylog:collapsedEnvs";
+
+/** Свёрнутые разделы истории переживают перезагрузку; недоступное хранилище не ломает панель. */
+function loadCollapsed(): Record<string, boolean> {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, boolean>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCollapsed(state: Record<string, boolean>) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify(state));
+  } catch {
+    // хранилище недоступно — состояние живёт только до перезагрузки
+  }
+}
+
 /** История поисков: новые сверху, «×» удаляет. */
 function SessionList({
   sessions,
@@ -794,11 +816,16 @@ function SessionList({
   onArchive: (session: Session) => void;
 }) {
   const [filter, setFilter] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
   const groups = groupByEnv(sessions ?? []);
   const activeEnv = sessions?.find((session) => session.id === activeId)?.env ?? null;
   const visible = filter === null ? groups : groups.filter((group) => group.env === filter);
-  const toggle = (env: string) => setCollapsed((state) => ({ ...state, [env]: !state[env] }));
+  const toggle = (env: string) =>
+    setCollapsed((state) => {
+      const next = { ...state, [env]: !state[env] };
+      saveCollapsed(next);
+      return next;
+    });
 
   const row = (session: Session) => (
     <li
