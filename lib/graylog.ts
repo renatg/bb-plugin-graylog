@@ -25,6 +25,22 @@ export function envNames(instances: string[]): string[] {
   return names;
 }
 
+/** Постоянная ссылка на сообщение в Graylog; пустая строка, если нет адреса, индекса или id. */
+export function graylogPermalink(baseUrl: string | undefined, index: string, id: string): string {
+  if (!baseUrl || !index || !id) return "";
+  return `${baseUrl.replace(/\/+$/, "")}/messages/${encodeURIComponent(index)}/${encodeURIComponent(id)}`;
+}
+
+/** Адреса веб-интерфейсов Graylog по инстансам из env MCP-сервера (GRAYLOG_<ИНСТАНС>_URL). */
+export function graylogBaseUrls(env: Record<string, string>): Record<string, string> {
+  const urls: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    const m = /^GRAYLOG_(.+)_URL$/.exec(key);
+    if (m && value) urls[m[1]!.toLowerCase()] = value;
+  }
+  return urls;
+}
+
 export function cleanTraceId(raw: string): string {
   return raw.replace(/["'\s\\]/g, "");
 }
@@ -59,6 +75,8 @@ export const logRowSchema = z.object({
   /** Тело запроса или ответа, если оно залогировано. */
   body: z.string().default(""),
   http: httpInfoSchema.nullable().default(null),
+  /** Постоянная ссылка на сообщение в веб-интерфейсе Graylog; пусто — адрес неизвестен. */
+  permalink: z.string().default(""),
 });
 export type LogRow = z.infer<typeof logRowSchema>;
 
@@ -164,6 +182,7 @@ function toRow(raw: Record<string, unknown>): LogRow {
     attributes: rest,
     body,
     http: httpInfo(template, attrs),
+    permalink: "",
   };
 }
 

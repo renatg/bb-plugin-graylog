@@ -6,7 +6,7 @@ import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import plugin from "../server";
 import {
   DEFAULT_LOGS_QUESTION, DEFAULT_QUESTION, MAX_RANGE_SECONDS, buildAgentPrompt, buildLogsPrompt, buildQueryTranslationPrompt,
-  cleanTraceId, envNames, formatRange, httpInfo, parseQueryJson, parseSearch, renderTemplate, resolveTarget,
+  cleanTraceId, envNames, graylogBaseUrls, graylogPermalink, formatRange, httpInfo, parseQueryJson, parseSearch, renderTemplate, resolveTarget,
 } from "../lib/graylog";
 import { formatDuration, jaegerMcpUrls, jaegerTraceUrl, parseOperations, parseServices, parseTraces } from "../lib/jaeger";
 import { startFakeJaeger } from "./fake-jaeger";
@@ -152,7 +152,7 @@ describe("parsing request/response logs", () => {
 describe("lib/logview", () => {
   const row = (time: string, level: string, service: string) =>
     ({ id: "1", index: "i", time, level, service, message: "m", template: "m", exception: "", category: "",
-      spanId: "", eventId: "", attributes: {}, body: "", http: null });
+      spanId: "", eventId: "", attributes: {}, body: "", http: null, permalink: "" });
   it("groups sessions by environment, freshest group first, keeping order inside", () => {
     const items = [
       { env: "dev", id: 1, updatedAt: 50 }, { env: "qa", id: 2, updatedAt: 10 }, { env: "prod", id: 3, updatedAt: 30 },
@@ -178,6 +178,11 @@ describe("lib/logview", () => {
     expect(shortService("bpm-platform-dcs")).toBe("bpm-platform-dcs");
     expect(serviceColor("a")).toBe(serviceColor("a"));
     expect(serviceColor("anything", 8)).toBeLessThan(8);
+  });
+  it("builds graylog permalinks", () => {
+    expect(graylogBaseUrls({ GRAYLOG_DEV_URL: "https://g.dev/", GRAYLOG_DEV_TOKEN: "x" })).toEqual({ dev: "https://g.dev/" });
+    expect(graylogPermalink("https://g.dev/", "idx_1", "abc")).toBe("https://g.dev/messages/idx_1/abc");
+    expect(graylogPermalink(undefined, "idx_1", "abc")).toBe("");
   });
   it("summarizes rows", () => {
     const summary = summarize([

@@ -571,6 +571,11 @@ function LogLine({ row, startMs }: { row: LogRow; startMs: number | null }) {
             <span>
               index {row.index} · id {row.id}
             </span>
+            {row.permalink ? (
+              <a href={row.permalink} target="_blank" rel="noreferrer" className="text-primary underline">
+                permalink
+              </a>
+            ) : null}
           </div>
           {row.template && row.template !== summary ? (
             <p className="font-mono text-[11px] text-muted-foreground">Шаблон: {row.template}</p>
@@ -714,7 +719,7 @@ function SearchForm({ onFound }: { onFound: (found: Found) => void }) {
           value={traceId}
           onChange={(event) => setTraceId(event.target.value)}
           placeholder="4bf92f3577b34da6a3ce929d0e0e4736"
-          className="font-mono"
+          className="font-mono placeholder:text-muted-foreground/50"
         />
       </Field>
       <Field label="…или опишите, что найти">
@@ -775,6 +780,28 @@ function timeAgo(ms: number): string {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours} ч назад`;
   return new Date(ms).toLocaleDateString();
+}
+
+/** Цвет заголовка раздела истории по окружению; классы статичны, чтобы Tailwind их не вырезал. */
+const ENV_COLORS: Record<string, string> = {
+  dev: "text-sky-600 dark:text-sky-400",
+  stage: "text-amber-600 dark:text-amber-400",
+  hotfix: "text-orange-600 dark:text-orange-400",
+  prod: "text-rose-600 dark:text-rose-400",
+};
+const ENV_FALLBACK_COLORS = [
+  "text-emerald-600 dark:text-emerald-400",
+  "text-violet-600 dark:text-violet-400",
+  "text-teal-600 dark:text-teal-400",
+  "text-fuchsia-600 dark:text-fuchsia-400",
+];
+
+function envColor(env: string): string {
+  const known = ENV_COLORS[env.toLowerCase()];
+  if (known) return known;
+  let hash = 0;
+  for (const char of env) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return ENV_FALLBACK_COLORS[hash % ENV_FALLBACK_COLORS.length]!;
 }
 
 const COLLAPSED_KEY = "bb-graylog:collapsedEnvs";
@@ -919,7 +946,10 @@ function SessionList({
                     type="button"
                     onClick={() => toggle(group.env)}
                     aria-expanded={!isCollapsed}
-                    className="flex items-center gap-1.5 px-1 py-1 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+                    className={cn(
+                      "flex items-center gap-1.5 px-1 py-1 text-left text-xs font-semibold uppercase tracking-wide hover:opacity-80",
+                      envColor(group.env),
+                    )}
                   >
                     <span aria-hidden className="w-3 text-center">
                       {isCollapsed ? "▸" : "▾"}

@@ -30,6 +30,8 @@ import {
   ENVS,
   envNames,
   parseSearch,
+  graylogBaseUrls,
+  graylogPermalink,
   resolveTarget,
   searchResultSchema,
   type SearchResult,
@@ -377,6 +379,15 @@ export default async function plugin(bb: BbPluginApi) {
   }
   const callTool = graylog.callTool;
 
+  /** Адреса Graylog по инстансам: из env MCP-сервера; ошибка чтения — ссылок не будет. */
+  let baseUrls: Record<string, string> = {};
+  try {
+    const config = await readMcpConfig(configPath, serverName);
+    if ("command" in config) baseUrls = graylogBaseUrls(config.env);
+  } catch (err) {
+    log(`Адреса Graylog для permalink не прочитаны: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   async function listEnvs(): Promise<string[]> {
     const parsed: unknown = JSON.parse(await callTool("list_instances", {}));
     if (!Array.isArray(parsed)) throw new Error("list_instances вернул не массив");
@@ -401,7 +412,12 @@ export default async function plugin(bb: BbPluginApi) {
       sort: newestFirst ? "desc" : "asc",
     };
     if (target.stream) args.streams = [target.stream];
-    const result = parseSearch(await callTool("search_messages", args));
+    const parsed = parseSearch(await callTool("search_messages", args));
+    const base = baseUrls[target.instance.toLowerCase()];
+    const result = {
+      ...parsed,
+      rows: parsed.rows.map((row) => ({ ...row, permalink: graylogPermalink(base, row.index, row.id) })),
+    };
     // По промту берём самые свежие сообщения, но показываем их по времени.
     return newestFirst ? { ...result, rows: [...result.rows].reverse() } : result;
   }
